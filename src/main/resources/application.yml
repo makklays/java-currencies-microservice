@@ -1,0 +1,41 @@
+
+spring:
+  application:
+    name: currencies-service
+  profiles:
+    active: dev
+
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/ms_currencies
+    username: admin
+    password: admin
+
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://localhost:5432/ms_currencies
+    user: admin
+    password: admin
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://localhost:8761/eureka/
+#    register-with-eureka: true
+#    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+server:
+  port: 8081
+
+# for Actuator /info
+info:
+  contact:
+    email: makklays@gmail.com
+    phone: +38 098 8705397
