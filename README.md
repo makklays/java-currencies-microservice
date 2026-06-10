@@ -68,10 +68,10 @@ Monitoring Microservice.
 - Java Development Kit (JDK) 17 or higher
 - Maven 4.0 or higher
 - PostgreSQL database (docker container is recommended)
-- RabbitMQ/Kafka server (docker container is recommended)
+- Kafka server (docker container is recommended)
 - Docker (optional, for containerization)
 - Git
 - IDE (e.g., IntelliJ IDEA, Eclipse)
 - cURL or Postman for API testing
 - Monitoring tools (Prometheus, Grafana) 
-
+- Access Credentials (Valid API keys for rates during integration testing)
