@@ -34,8 +34,11 @@ public class Currency {
     @Column("title")
     private String title;
 
-    @Column("rate")
-    private Float rate;
+    @Column("buy_price")
+    private Double buyPrice;
+
+    @Column("sell_price")
+    private Double sellPrice;
 
     @Column("exchangedate")
     private String exchangedate;
@@ -57,8 +60,11 @@ public class Currency {
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
-    public Float getRate() { return rate; }
-    public void setRate(Float rate) { this.rate = rate; }
+    public Double getBuyPrice() { return buyPrice; }
+    public void setBuyPrice(Double buyPrice) { this.buyPrice = buyPrice; }
+
+    public Double getSellPrice() { return sellPrice; }
+    public void setSellPrice(Double sellPrice) { this.sellPrice = sellPrice; }
 
     public String getExchangedate() { return exchangedate; }
     public void setExchangedate(String exchangedate) { this.exchangedate = exchangedate; }
@@ -71,8 +77,9 @@ public class Currency {
         if (this == o) return true;
         if (!(o instanceof Currency currency)) return false;
         return getId().equals(currency.getId()) && getCc().equals(currency.getCc()) && getR030().equals(currency.getR030()) &&
-            getTitle().equals(currency.getTitle()) && getRate().equals(currency.getRate()) &&
-            getExchangedate().equals(currency.getExchangedate()) && getCreatedAt().equals(currency.getCreatedAt());
+            getTitle().equals(currency.getTitle()) && getBuyPrice().equals(currency.getBuyPrice()) &&
+            getSellPrice().equals(currency.getSellPrice()) && getExchangedate().equals(currency.getExchangedate()) &&
+            getCreatedAt().equals(currency.getCreatedAt());
     }
 
     @Override
@@ -82,7 +89,8 @@ public class Currency {
         result = 31 * result + (cc != null ? cc.hashCode() : 0);
         result = 31 * result + (r030 != null ? r030.hashCode() : 0);
         result = 31 * result + (title != null ? title.hashCode() : 0);
-        result = 31 * result + (rate != null ? rate.hashCode() : 0);
+        result = 31 * result + (buyPrice != null ? buyPrice.hashCode() : 0);
+        result = 31 * result + (sellPrice != null ? sellPrice.hashCode() : 0);
         result = 31 * result + (exchangedate != null ? exchangedate.hashCode() : 0);
 
         return result;
@@ -95,7 +103,8 @@ public class Currency {
             ", cc='" + cc + '\'' +
             ", r030=" + r030 +
             ", title=" + title +
-            ", rate=" + rate +
+            ", buyPrice=" + buyPrice +
+            ", sellPrice=" + sellPrice +
             ", exchangedate='" + exchangedate + '\'' +
             ", createdAt=" + createdAt +
             '}';

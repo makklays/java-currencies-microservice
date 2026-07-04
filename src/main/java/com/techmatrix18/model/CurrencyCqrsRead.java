@@ -30,8 +30,11 @@ public class CurrencyCqrsRead {
     @Column("title")
     private String title;
 
-    @Column("rate")
-    private Double rate; // Установлен Double согласно DOUBLE PRECISION в миграции
+    @Column("buy_price")
+    private Double buyPrice;
+
+    @Column("sell_price")
+    private Double sellPrice;
 
     @Column("exchangedate")
     private String exchangedate;
@@ -53,8 +56,11 @@ public class CurrencyCqrsRead {
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
-    public Double getRate() { return rate; }
-    public void setRate(Double rate) { this.rate = rate; }
+    public Double getBuyPrice() { return buyPrice; }
+    public void setBuyPrice(Double buyPrice) { this.buyPrice = buyPrice; }
+
+    public Double getSellPrice() { return sellPrice; }
+    public void setSellPrice(Double sellPrice) { this.sellPrice = sellPrice; }
 
     public String getExchangedate() { return exchangedate; }
     public void setExchangedate(String exchangedate) { this.exchangedate = exchangedate; }
@@ -70,7 +76,8 @@ public class CurrencyCqrsRead {
             getCc().equals(that.getCc()) &&
             getR030().equals(that.getR030()) &&
             getTitle().equals(that.getTitle()) &&
-            getRate().equals(that.getRate()) &&
+            getBuyPrice().equals(that.getBuyPrice()) &&
+            getSellPrice().equals(that.getSellPrice()) &&
             getExchangedate().equals(that.getExchangedate()) &&
             getUpdatedAt().equals(that.getUpdatedAt());
     }
@@ -82,7 +89,8 @@ public class CurrencyCqrsRead {
         result = 31 * result + (cc != null ? cc.hashCode() : 0);
         result = 31 * result + (r030 != null ? r030.hashCode() : 0);
         result = 31 * result + (title != null ? title.hashCode() : 0);
-        result = 31 * result + (rate != null ? rate.hashCode() : 0);
+        result = 31 * result + (buyPrice != null ? buyPrice.hashCode() : 0);
+        result = 31 * result + (sellPrice != null ? sellPrice.hashCode() : 0);
         result = 31 * result + (exchangedate != null ? exchangedate.hashCode() : 0);
         return result;
     }
@@ -94,7 +102,8 @@ public class CurrencyCqrsRead {
             ", cc='" + cc + '\'' +
             ", r030=" + r030 +
             ", title=" + title +
-            ", rate=" + rate +
+            ", buyPrice=" + buyPrice +
+            ", sellPrice=" + sellPrice +
             ", exchangedate='" + exchangedate + '\'' +
             ", updatedAt=" + updatedAt +
             '}';

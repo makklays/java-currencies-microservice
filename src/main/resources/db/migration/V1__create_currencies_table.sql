@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS currencies
     cc              VARCHAR(255) NOT NULL,      -- currency code (например, USD, EUR)
     r030            INT NOT NULL,
     title           VARCHAR(255) NOT NULL,
-    rate            DOUBLE PRECISION NOT NULL,  -- вместо FLOAT
+    buy_price       NUMERIC(19, 4) NOT NULL DEFAULT 0.0,
+    sell_price      NUMERIC(19, 4) NOT NULL DEFAULT 0.0,
     exchangedate    VARCHAR(255) NOT NULL,
     created_at      TIMESTAMP(6) DEFAULT NOW()  -- datetime(6) -> TIMESTAMP(6) с микросекундами
 );
