@@ -110,14 +110,11 @@
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
         </dependency>
-        <!--dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-boot-starter-cloud-connectors</artifactId>
-        </dependency-->
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-stream-binder-kafka</artifactId>
+            <groupId>io.projectreactor.kafka</groupId>
+            <artifactId>reactor-kafka</artifactId>
         </dependency>
+
 
         <!-- Telegram -->
         <dependency>
@@ -194,7 +191,7 @@
     </dependencies>
 
     <!-- Spring Cloud Dependency Management - Netflix Eureka -->
-    <dependencyManagement>
+    <!--dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
@@ -204,7 +201,7 @@
                 <scope>import</scope>
             </dependency>
         </dependencies>
-    </dependencyManagement>
+    </dependencyManagement-->
 
     <build>
         <plugins>

@@ -5,6 +5,12 @@ spring:
   profiles:
     active: dev
 
+  # название топика для Kafka, в который будут публиковаться обновления курсов валют - currency-rate-updates-topic
+  kafka:
+    bootstrap-servers: localhost:9092  # Измените на 29092, если на 9092 будет ошибка подключения
+    topic:
+      currency-updates: currency-rate-updates-topic
+
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/ms_currencies
     username: admin

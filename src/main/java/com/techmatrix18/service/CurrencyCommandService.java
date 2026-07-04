@@ -1,16 +1,15 @@
 package com.techmatrix18.service;
 
-import com.techmatrix18.controller.CurrencyController;
 import com.techmatrix18.model.Currency;
 import com.techmatrix18.repository.CurrencyRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.time.LocalDateTime;
 
 /**
  * Service class for managing Currency entities.
@@ -25,9 +24,14 @@ public class CurrencyCommandService {
 
     private static final Logger log = LoggerFactory.getLogger(CurrencyCommandService.class);
     private final CurrencyRepository currencyRepo;
+    private final ReactiveKafkaProducerTemplate<String, Currency> kafkaProducerTemplate;
 
-    public CurrencyCommandService(CurrencyRepository currencyRepo) {
+    @Value("${spring.kafka.topic.currency-updates:currency-rate-updates-topic}")
+    private String topicName;
+
+    public CurrencyCommandService(CurrencyRepository currencyRepo, ReactiveKafkaProducerTemplate<String, Currency> kafkaProducerTemplate) {
         this.currencyRepo = currencyRepo;
+        this.kafkaProducerTemplate = kafkaProducerTemplate;
     }
 
     public Flux<Currency> findAll() {
@@ -45,7 +49,7 @@ public class CurrencyCommandService {
     }
 
     /**
-     * Реализация метода обновления курса для Саги
+     * Реализация метода обновления курса для Саги с отправкой в Kafka
      */
     @Transactional
     public Mono<Void> updateCurrencyRate(String correlationId, String code, Double buyPrice, Double sellPrice, String updatedAt) {
@@ -53,7 +57,7 @@ public class CurrencyCommandService {
 
         return currencyRepo.findByCc(code)
             .flatMap(currencyEntity -> {
-                // Прямое сохранение коммерческих курсов покупки и продажи
+                // Обновляем коммерческие курсы
                 currencyEntity.setBuyPrice(buyPrice);
                 currencyEntity.setSellPrice(sellPrice);
 
@@ -61,10 +65,25 @@ public class CurrencyCommandService {
                     currencyEntity.setExchangedate(updatedAt);
                 }
 
+                // Сохраняем в WRITE-таблицу (currencies)
                 return currencyRepo.save(currencyEntity);
             })
-            .doOnSuccess(savedCurrency -> log.info("[Correlation-ID: {}] Сервис записи: Курсы buy/sell для {} успешно сохранены.", correlationId, code))
-            .then();
+            // Цепочка flatMap гарантирует: отправка в Kafka начнется только ПОСЛЕ успешной записи в БД
+            .flatMap(savedCurrency -> {
+                log.info("[Correlation-ID: {}] Продюсер: Отправка обновленной сущности {} в Kafka топик '{}'...", correlationId, code, topicName);
+
+                // Асинхронно отправляем саму сущность Currency в Kafka.
+                // В качестве ключа сообщения (Key) передаем код валюты (например, "USD") для сохранения порядка в партициях.
+                return kafkaProducerTemplate.send(topicName, savedCurrency.getCc(), savedCurrency)
+                    .doOnSuccess(senderResult -> log.info("[Correlation-ID: {}] Продюсер: Курс успешно опубликован в Kafka. Партиция: {}",
+                            correlationId, senderResult.recordMetadata().partition()))
+                    .doOnError(err -> log.error("[Correlation-ID: {}] Продюсер: КРИТИЧЕСКАЯ ОШИБКА отправки в Kafka: {}",
+                            correlationId, err.getMessage()))
+                    // Возвращаем сохраненную сущность дальше по цепочке
+                    .thenReturn(savedCurrency);
+            })
+            .doOnSuccess(savedCurrency -> log.info("[Correlation-ID: {}] Сервис записи: Бизнес-процесс Саги для {} успешно завершен.", correlationId, code))
+            .then(); // Сбрасываем результат в Mono<Void> для соответствия сигнатуре
     }
 }
 
