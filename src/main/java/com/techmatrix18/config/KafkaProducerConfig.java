@@ -53,8 +53,8 @@ public class KafkaProducerConfig {
         JsonSerializer<Currency> valueSerializer = new JsonSerializer<>(objectMapper);
 
         SenderOptions<String, Currency> senderOptions = SenderOptions.<String, Currency>create(props)
-                .withKeySerializer(new StringSerializer())
-                .withValueSerializer(valueSerializer);
+            .withKeySerializer(new StringSerializer())
+            .withValueSerializer(valueSerializer);
 
         return new ReactiveKafkaProducerTemplate<>(senderOptions);
     }

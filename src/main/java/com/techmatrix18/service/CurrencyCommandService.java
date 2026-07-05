@@ -1,89 +1,105 @@
 package com.techmatrix18.service;
 
-import com.techmatrix18.model.Currency;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.techmatrix18.model.CurrenciesIdempotency;
+import com.techmatrix18.model.OutboxEvent;
 import com.techmatrix18.repository.CurrencyRepository;
+import com.techmatrix18.repository.CurrenciesIdempotencyRepository;
+import com.techmatrix18.repository.OutboxEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/**
- * Service class for managing Currency entities.
- *
- * @author Alexander Kuziv <makklays@gmail.com>
- * @company TechMatrix18
- * @version 0.0.1
- * @since 10.06.2026
- */
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 @Service
 public class CurrencyCommandService {
 
     private static final Logger log = LoggerFactory.getLogger(CurrencyCommandService.class);
+
     private final CurrencyRepository currencyRepo;
-    private final ReactiveKafkaProducerTemplate<String, Currency> kafkaProducerTemplate;
+    private final CurrenciesIdempotencyRepository idempotencyRepo;
+    private final OutboxEventRepository outboxRepo;
+    private final ObjectMapper objectMapper;
 
-    @Value("${spring.kafka.topic.currency-updates:currency-rate-updates-topic}")
-    private String topicName;
-
-    public CurrencyCommandService(CurrencyRepository currencyRepo, ReactiveKafkaProducerTemplate<String, Currency> kafkaProducerTemplate) {
+    public CurrencyCommandService(CurrencyRepository currencyRepo,
+                                  CurrenciesIdempotencyRepository idempotencyRepo,
+                                  OutboxEventRepository outboxRepo,
+                                  ObjectMapper objectMapper) {
         this.currencyRepo = currencyRepo;
-        this.kafkaProducerTemplate = kafkaProducerTemplate;
-    }
-
-    public Flux<Currency> findAll() {
-        return currencyRepo.findAll();
-    }
-    public Flux<Currency> findByExchangedate(String date) {
-        return currencyRepo.findByExchangedate(date);
-    }
-
-    public Mono<Currency> findById(Long id) {
-        return currencyRepo.findById(id);
-    }
-    public Mono<Currency> findByCc(String code) {
-        return currencyRepo.findByCc(code);
+        this.idempotencyRepo = idempotencyRepo;
+        this.outboxRepo = outboxRepo;
+        this.objectMapper = objectMapper;
     }
 
     /**
-     * Реализация метода обновления курса для Саги с отправкой в Kafka
+     * Обновление курса с Идемпотентностью и Outbox Pattern
      */
     @Transactional
     public Mono<Void> updateCurrencyRate(String correlationId, String code, Double buyPrice, Double sellPrice, String updatedAt) {
-        log.info("[Correlation-ID: {}] Сервис записи: Старт обновления курсов для {}", correlationId, code);
+        log.info("[Correlation-ID: {}] Сервис записи: Старт транзакции.", correlationId);
 
-        return currencyRepo.findByCc(code)
-            .flatMap(currencyEntity -> {
-                // Обновляем коммерческие курсы
-                currencyEntity.setBuyPrice(buyPrice);
-                currencyEntity.setSellPrice(sellPrice);
-
-                if (updatedAt != null) {
-                    currencyEntity.setExchangedate(updatedAt);
-                }
-
-                // Сохраняем в WRITE-таблицу (currencies)
-                return currencyRepo.save(currencyEntity);
+        // 1. ПРОВЕРКА ИДЕМПОТЕНТНОСТИ
+        return idempotencyRepo.findById(correlationId)
+            .flatMap(idempotencyRecord -> {
+                // Если ключ найден — это дубликат. Возвращаем пустой Mono (Идемпотентный успех)
+                log.warn("[Correlation-ID: {}] Идемпотентность: Запрос уже обрабатывался со статусом {}. Пропускаем дубликат.",
+                    correlationId, idempotencyRecord.getStatus());
+                return Mono.empty();
             })
-            // Цепочка flatMap гарантирует: отправка в Kafka начнется только ПОСЛЕ успешной записи в БД
-            .flatMap(savedCurrency -> {
-                log.info("[Correlation-ID: {}] Продюсер: Отправка обновленной сущности {} в Kafka топик '{}'...", correlationId, code, topicName);
+            // Если ключа нет — flatMap вернет empty, и сработает switchIfEmpty (основная транзакция)
+            .switchIfEmpty(Mono.defer(() -> {
 
-                // Асинхронно отправляем саму сущность Currency в Kafka.
-                // В качестве ключа сообщения (Key) передаем код валюты (например, "USD") для сохранения порядка в партициях.
-                return kafkaProducerTemplate.send(topicName, savedCurrency.getCc(), savedCurrency)
-                    .doOnSuccess(senderResult -> log.info("[Correlation-ID: {}] Продюсер: Курс успешно опубликован в Kafka. Партиция: {}",
-                            correlationId, senderResult.recordMetadata().partition()))
-                    .doOnError(err -> log.error("[Correlation-ID: {}] Продюсер: КРИТИЧЕСКАЯ ОШИБКА отправки в Kafka: {}",
-                            correlationId, err.getMessage()))
-                    // Возвращаем сохраненную сущность дальше по цепочке
-                    .thenReturn(savedCurrency);
-            })
-            .doOnSuccess(savedCurrency -> log.info("[Correlation-ID: {}] Сервис записи: Бизнес-процесс Саги для {} успешно завершен.", correlationId, code))
-            .then(); // Сбрасываем результат в Mono<Void> для соответствия сигнатуре
+                // 2. РЕГИСТРИРУЕМ КЛЮЧ ИДЕМПОТЕНТНОСТИ (Статус PROCESSING)
+                CurrenciesIdempotency idempotency = new CurrenciesIdempotency();
+                idempotency.setIdempotencyKey(correlationId);
+                idempotency.setStatus("PROCESSING");
+                idempotency.setCreatedAt(LocalDateTime.now());
+
+                return idempotencyRepo.save(idempotency)
+                    // 3. ОБНОВЛЯЕМ ВАЛЮТУ В ОСНОВНОЙ ТАБЛИЦЕ
+                    .then(currencyRepo.findByCc(code))
+                    .flatMap(currencyEntity -> {
+                        currencyEntity.setBuyPrice(buyPrice);
+                        currencyEntity.setSellPrice(sellPrice);
+                        if (updatedAt != null) {
+                            currencyEntity.setExchangedate(updatedAt);
+                        }
+                        return currencyRepo.save(currencyEntity);
+                    })
+                    // 4. ЗАПИСЫВАЕМ СОБЫТИЕ В ТАБЛИЦУ OUTBOX (В той же транзакции!)
+                    .flatMap(savedCurrency -> {
+                        return Mono.fromCallable(() -> {
+                                OutboxEvent outbox = new OutboxEvent();
+                                outbox.setId(UUID.randomUUID());
+                                outbox.setAggregateType("Currency");
+                                outbox.setAggregateId(savedCurrency.getId().toString());
+                                outbox.setEventType("CurrencyUpdated");
+                                outbox.setProcessed(false);
+                                outbox.setCreatedAt(LocalDateTime.now());
+
+                                // Сериализуем сущность Currency в JSONB payload
+                                String jsonPayload = objectMapper.writeValueAsString(savedCurrency);
+                                outbox.setPayload(jsonPayload);
+
+                                return outbox;
+                            })
+                            .flatMap(outboxRepo::save);
+                    })
+                    // 5. ПЕРЕВОДИМ ИДЕМПОТЕНТНОСТЬ В СТАТУС COMPLETED
+                    .flatMap(savedOutbox -> idempotencyRepo.findById(correlationId))
+                    .flatMap(completedIdempotency -> {
+                        completedIdempotency.setStatus("COMPLETED");
+                        completedIdempotency.setResponseBody("{\"status\":\"SUCCESS\"}");
+                        return idempotencyRepo.save(completedIdempotency);
+                    })
+                    .doOnSuccess(v -> log.info("[Correlation-ID: {}] Сервис записи: Курс сохранен, Outbox записан, транзакция успешно завершена.", correlationId))
+                    .then();
+            }))
+            .then();
     }
 }
 
