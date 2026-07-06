@@ -17,6 +17,12 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for the CurrencyQueryService class.
  *
+ * @ExtendWith(MockitoExtension.class) — инициализирует моки Mockito в JUnit 5.
+ * @Mock — создает изолированную заглушку для репозитория, не поднимая реальную базу данных.
+ * @InjectMocks — автоматически внедряет созданный мок репозитория в конструктор CurrencyQueryService.
+ * StepVerifier — незаменимый инструмент для проверки реактивных стримов. Он подписывается на Flux/Mono и проверяет
+ *     поочередно элементы (expectNext) и успешное завершение потока (verifyComplete).
+ *
  * @author Alexander Kuziv <makklays@gmail.com>
  * @company TechMatrix18
  * @version 0.0.1
