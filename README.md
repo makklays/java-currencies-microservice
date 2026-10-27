@@ -4,10 +4,8 @@
     <img src="./src/main/resources/static/images/schema-currencies-microservice.png"  />
 </p>
 <p align="left">
-    <img src="./src/main/resources/static/images/banco4.jpg" width="170" />
-    <img src="./src/main/resources/static/images/banco1.jpg" width="170" />
-    <img src="./src/main/resources/static/images/banco3.jpg" width="170" />
-    <img src="./src/main/resources/static/images/cards.jpg" width="170" />
+    <img src="./src/main/resources/static/images/cur3.jpeg" width="400" />
+    <img src="./src/main/resources/static/images/cur2.jpeg" width="400" />
 </p>
 
 ### Overview
